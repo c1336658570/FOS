@@ -44,11 +44,13 @@ MBOOT_CHECKSUM 		= 	- (MBOOT_HEADER_MAGIC + MBOOT_HEADER_FLAGS)
 .globl start 		// 内核代码入口，此处提供该声明给 ld 链接器
 .globl flush
 .extern kern_entry	// 声明内核 C 代码的入口函数
+.extern kern_stack
 start:
 	cli  				//此时还没有设置好保护模式的中断处理，所以必须关闭中断
 	movl %ebx, (glb_mboot_ptr)	//将 ebx 中存储的指针存入 glb_mboot_ptr 变量
 	movl $0xC0000000, %eax
-	movl (stack_start), %esp 
+	leal kern_stack, %esp 
+	addl $0x4000, %esp
 	subl %eax, %esp
 	movl $0, %ebp 			//帧指针修改为 0
 	movl $0xB8000, %eax

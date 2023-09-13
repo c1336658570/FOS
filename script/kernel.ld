@@ -29,29 +29,42 @@ SECTIONS
 {
 	. = 0x100000;
 	PROVIDE( _start = . );
+
+	. = ALIGN(1 << 12);
 	.text.init :
 	{
 		*(.text.init)
 		. = ALIGN(4096);
 	}
+
+	. = ALIGN(1 << 12);
 	.data.init :
 	{
 		*(.data.init)
 		. = ALIGN(8192);
 	}
 	. += 0xC0000000;
+
+	. = ALIGN(1 << 12);
 	.text : AT(ADDR(.text) - 0xC0000000)
 	{
 		*(.text)
 		. = ALIGN(4096);
 	}
+
+	. = ALIGN(1 << 12);
 	.data : AT(ADDR(.data) - 0xC0000000)
 	{
+		__start_stack = .;
+		kern_stack = .;
+		. = __start_stack + 0x4000;
+		__end_stack = .;
 		*(.data)
 		*(.rodata)
 		. = ALIGN(8192);
 	}
 
+	. = ALIGN(1 << 12);
 	.bss : AT(ADDR(.bss) - 0xC0000000)
 	{
 		*(.bss)
