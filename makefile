@@ -24,7 +24,7 @@ all: $(S_OBJECTS) $(C_OBJECTS) link update_image
 
 .S.o:
 	@echo 编译汇编文件 $< ...
-# $(ASM) $(ASM_FLAGS) $< -o $@
+#	$(ASM) $(ASM_FLAGS) $< -o $@
 	$(CC) $(C_FLAGS) $< -o $@
 
 link:

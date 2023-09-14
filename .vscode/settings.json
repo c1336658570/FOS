@@ -1,0 +1,6 @@
+{
+  "files.associations": {
+    "*.ld": "c",
+    "types.h": "c"
+  }
+}
