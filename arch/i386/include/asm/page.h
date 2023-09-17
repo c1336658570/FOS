@@ -47,25 +47,25 @@
  * This much address space is reserved for vmalloc() and iomap()
  * as well as fixmap mappings.
  */
-#define __VMALLOC_RESERVE	(128 << 20)
-#define VMALLOC_RESERVE		((unsigned long)__VMALLOC_RESERVE)
-#define __MAXMEM		(-__PAGE_OFFSET-__VMALLOC_RESERVE)
-#define MAXMEM			((unsigned long)(-PAGE_OFFSET-VMALLOC_RESERVE))
+#define __VMALLOC_RESERVE	(128 << 20)   // 定义宏__VMALLOC_RESERVE，表示虚拟内存区域保留的大小，这里是128MB
+#define VMALLOC_RESERVE		((unsigned long)__VMALLOC_RESERVE)  // 定义宏VMALLOC_RESERVE，表示虚拟内存区域保留的大小，转换为unsigned long类型
+#define __MAXMEM		(-__PAGE_OFFSET-__VMALLOC_RESERVE)  // 定义宏__MAXMEM，表示系统允许的最大内存大小，通过将__PAGE_OFFSET和__VMALLOC_RESERVE相加并取负数得到
+#define MAXMEM			((unsigned long)(-PAGE_OFFSET-VMALLOC_RESERVE)) // 定义宏MAXMEM，表示系统允许的最大内存大小，转换为unsigned long类
 
-typedef struct { unsigned long pte_low; } pte_t;
-typedef struct { unsigned long pmd; } pmd_t;
-typedef struct { unsigned long pgd; } pgd_t;
-typedef struct { unsigned long pgprot; } pgprot_t;
-#define pte_val(x)	((x).pte_low)
-#define pmd_val(x)	((x).pmd)
+typedef struct { unsigned long pte_low; } pte_t;  // 表示页表项（Page Table Entry）
+typedef struct { unsigned long pmd; } pmd_t;  // 定义结构体pmd_t，表示页中间目录项（Page Middle Directory Entry）
+typedef struct { unsigned long pgd; } pgd_t;  // 表示页全局目录项（Page Global Directory Entry）s
+typedef struct { unsigned long pgprot; } pgprot_t;  // 定义结构体pgprot_t，表示页保护位（Page Protection Bits）
+#define pte_val(x)	((x).pte_low) // 获取pte_t结构体中的pte_low成员的值
+#define pmd_val(x)	((x).pmd)     // 获取pmd_t结构体中的pmd成员的值
 #define pgd_val(x)	((x).pgd)
 #define pgprot_val(x)	((x).pgprot)
 
-#define __pte(x) ((pte_t) { (x) } )
-#define __pmd(x) ((pmd_t) { (x) } )
+#define __pte(x) ((pte_t) { (x) } )   // 用于创建一个pte_t结构体并初始化pte_low成员为x
+#define __pmd(x) ((pmd_t) { (x) } )   // 用于创建一个pgd_t结构体并初始化pgd成员为x
 #define __pgd(x) ((pgd_t) { (x) } )
 #define __pgprot(x)	((pgprot_t) { (x) } )
-#define VALID_PAGE(page)	((page - mem_map) < max_mapnr)
-#define virt_to_page(kaddr)	(mem_map + (__pa(kaddr) >> PAGE_SHIFT))
+#define VALID_PAGE(page)	((page - mem_map) < max_mapnr)  // 用于判断给定的页是否在有效的页范围内，即判断页是否位于mem_map和max_mapnr之间
+#define virt_to_page(kaddr)	(mem_map + (__pa(kaddr) >> PAGE_SHIFT)) // 用于将给定的虚拟地址转换为对应的页结构体指针，通过将虚拟地址的物理地址部分右移PAGE_SHIFT位来计算页索引，再加上mem_map的起始地址来得到页结构体指针
 
 #endif /* _I386_PAGE_H */
