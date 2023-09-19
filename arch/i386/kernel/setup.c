@@ -171,6 +171,33 @@ void __init add_memory_region(unsigned long long start, unsigned long long size,
 	e820.nr_map++;
 }
 
+#define E820_DEBUG	1
+
+static void __init print_memory_map(char *who)
+{
+	int i;
+
+	for (i = 0; i < e820.nr_map; i++) {
+		printk(" %s: %016Lx @ %016Lx ", who,
+			e820.map[i].size, e820.map[i].addr);
+		switch (e820.map[i].type) {
+		case E820_RAM:	printk("(usable)\n");
+				break;
+		case E820_RESERVED:
+				printk("(reserved)\n");
+				break;
+		case E820_ACPI:
+				printk("(ACPI data)\n");
+				break;
+		case E820_NVS:
+				printk("(ACPI NVS)\n");
+				break;
+		default:	printk("type %lu\n", e820.map[i].type);
+				break;
+		}
+	}
+}
+
 static int __init copy_e820_map(struct e820entry * biosmap, int nr_map)
 {
 	// 用于处理BIOS提供的E820内存映射表，帮助操作系统知道哪些内存区域可以用于什么用途（比如RAM，保留区域等）
@@ -254,18 +281,18 @@ void __init setup_arch(char **cmdline_p)
 	visws_get_board_type_and_rev();
 #endif
 	// 初始化根设备、驱动器信息、屏幕信息、APM BIOS信息等
- 	ROOT_DEV = to_kdev_t(ORIG_ROOT_DEV);
- 	drive_info = DRIVE_INFO;
- 	screen_info = SCREEN_INFO;
-	apm_info.bios = APM_BIOS_INFO;
-	// 如果系统描述表的长度不为0，获取机器ID、子模型ID和BIOS版本
-	if( SYS_DESC_TABLE.length != 0 ) {
-		MCA_bus = SYS_DESC_TABLE.table[3] &0x2;
-		machine_id = SYS_DESC_TABLE.table[0];
-		machine_submodel_id = SYS_DESC_TABLE.table[1];
-		BIOS_revision = SYS_DESC_TABLE.table[2];
-	}
-	aux_device_present = AUX_DEVICE_INFO;
+ 	// ROOT_DEV = to_kdev_t(ORIG_ROOT_DEV);
+ 	// drive_info = DRIVE_INFO;
+ 	// screen_info = SCREEN_INFO;
+	// apm_info.bios = APM_BIOS_INFO;
+	// // 如果系统描述表的长度不为0，获取机器ID、子模型ID和BIOS版本
+	// if( SYS_DESC_TABLE.length != 0 ) {
+	// 	MCA_bus = SYS_DESC_TABLE.table[3] &0x2;
+	// 	machine_id = SYS_DESC_TABLE.table[0];
+	// 	machine_submodel_id = SYS_DESC_TABLE.table[1];
+	// 	BIOS_revision = SYS_DESC_TABLE.table[2];
+	// }
+	// aux_device_present = AUX_DEVICE_INFO;
 
 	// 如果配置了RAM磁盘，获取其启动图像的位置、提示和加载标志
 #ifdef CONFIG_BLK_DEV_RAM
@@ -276,246 +303,246 @@ void __init setup_arch(char **cmdline_p)
 	// 设置内存区域
 	setup_memory_region();
 
-	// 根据是否设置为只读来调整根挂载标志
-	if (!MOUNT_ROOT_RDONLY)
-		root_mountflags &= ~MS_RDONLY;
-	// 设置内核的代码和数据段的开始和结束地址
-	init_mm.start_code = (unsigned long) &_text;
-	init_mm.end_code = (unsigned long) &_etext;
-	init_mm.end_data = (unsigned long) &_edata;
-	init_mm.brk = (unsigned long) &_end;
+// 	// 根据是否设置为只读来调整根挂载标志
+// 	if (!MOUNT_ROOT_RDONLY)
+// 	root_mountflags &= ~MS_RDONLY;
+// 	// 设置内核的代码和数据段的开始和结束地址
+// 	init_mm.start_code = (unsigned long) &_text;
+// 	init_mm.end_code = (unsigned long) &_etext;
+// 	init_mm.end_data = (unsigned long) &_edata;
+// 	init_mm.brk = (unsigned long) &_end;
 
-	// 设置代码和数据资源的开始和结束地址
-	code_resource.start = virt_to_bus(&_text);
-	code_resource.end = virt_to_bus(&_etext)-1;
-	data_resource.start = virt_to_bus(&_etext);
-	data_resource.end = virt_to_bus(&_edata)-1;
+// 	// 设置代码和数据资源的开始和结束地址
+// 	code_resource.start = virt_to_bus(&_text);
+// 	code_resource.end = virt_to_bus(&_etext)-1;
+// 	data_resource.start = virt_to_bus(&_etext);
+// 	data_resource.end = virt_to_bus(&_edata)-1;
 
-	// 解析命令行中的内存参数
-	parse_mem_cmdline(cmdline_p);
+// 	// 解析命令行中的内存参数
+// 	parse_mem_cmdline(cmdline_p);
 
-	// 定义一些宏来帮助计算页面帧号和物理地址
-#define PFN_UP(x)	(((x) + PAGE_SIZE-1) >> PAGE_SHIFT)
-#define PFN_DOWN(x)	((x) >> PAGE_SHIFT)
-#define PFN_PHYS(x)	((x) << PAGE_SHIFT)
+// 	// 定义一些宏来帮助计算页面帧号和物理地址
+// #define PFN_UP(x)	(((x) + PAGE_SIZE-1) >> PAGE_SHIFT)
+// #define PFN_DOWN(x)	((x) >> PAGE_SHIFT)
+// #define PFN_PHYS(x)	((x) << PAGE_SHIFT)
 
-/*
- * 128MB for vmalloc and initrd
- */
-	// 为vmalloc和initrd预留128MB的空间
-#define VMALLOC_RESERVE	(unsigned long)(128 << 20)
-#define MAXMEM		(unsigned long)(-PAGE_OFFSET-VMALLOC_RESERVE)
-#define MAXMEM_PFN	PFN_DOWN(MAXMEM)
-#define MAX_NONPAE_PFN	(1 << 20)
+// /*
+//  * 128MB for vmalloc and initrd
+//  */
+// 	// 为vmalloc和initrd预留128MB的空间
+// #define VMALLOC_RESERVE	(unsigned long)(128 << 20)
+// #define MAXMEM		(unsigned long)(-PAGE_OFFSET-VMALLOC_RESERVE)
+// #define MAXMEM_PFN	PFN_DOWN(MAXMEM)
+// #define MAX_NONPAE_PFN	(1 << 20)
 
-	/*
-	 * partially used pages are not usable - thus
-	 * we are rounding upwards:
-	 */
-	// 计算内核结束后的第一个页面帧号
-	start_pfn = PFN_UP(__pa(&_end));
+// 	/*
+// 	 * partially used pages are not usable - thus
+// 	 * we are rounding upwards:
+// 	 */
+// 	// 计算内核结束后的第一个页面帧号
+// 	start_pfn = PFN_UP(__pa(&_end));
 
-	/*
-	 * Find the highest page frame number we have available
-	 */
-	// 查找可用的最高页面帧号
-	max_pfn = 0;
-	for (i = 0; i < e820.nr_map; i++) {
-		unsigned long start, end;
-		/* RAM? */
-		if (e820.map[i].type != E820_RAM)
-			continue;
-		start = PFN_UP(e820.map[i].addr);
-		end = PFN_DOWN(e820.map[i].addr + e820.map[i].size);
-		if (start >= end)
-			continue;
-		if (end > max_pfn)
-			max_pfn = end;
-	}
+// 	/*
+// 	 * Find the highest page frame number we have available
+// 	 */
+// 	// 查找可用的最高页面帧号
+// 	max_pfn = 0;
+// 	for (i = 0; i < e820.nr_map; i++) {
+// 		unsigned long start, end;
+// 		/* RAM? */
+// 		if (e820.map[i].type != E820_RAM)
+// 			continue;
+// 		start = PFN_UP(e820.map[i].addr);
+// 		end = PFN_DOWN(e820.map[i].addr + e820.map[i].size);
+// 		if (start >= end)
+// 			continue;
+// 		if (end > max_pfn)
+// 			max_pfn = end;
+// 	}
 
-	/*
-	 * Determine low and high memory ranges:
-	 */
-	// 确定低内存和高内存的范围
-	max_low_pfn = max_pfn;
-	if (max_low_pfn > MAXMEM_PFN) {
-		max_low_pfn = MAXMEM_PFN;
-#ifndef CONFIG_HIGHMEM
-		/* Maximum memory usable is what is directly addressable */
-		printk(KERN_WARNING "Warning only %ldMB will be used.\n",
-					MAXMEM>>20);
-		if (max_pfn > MAX_NONPAE_PFN)
-			printk(KERN_WARNING "Use a PAE enabled kernel.\n");
-		else
-			printk(KERN_WARNING "Use a HIGHMEM enabled kernel.\n");
-#else /* !CONFIG_HIGHMEM */
-#ifndef CONFIG_X86_PAE
-		if (max_pfn > MAX_NONPAE_PFN) {
-			max_pfn = MAX_NONPAE_PFN;
-			printk(KERN_WARNING "Warning only 4GB will be used.\n");
-			printk(KERN_WARNING "Use a PAE enabled kernel.\n");
-		}
-#endif /* !CONFIG_X86_PAE */
-#endif /* !CONFIG_HIGHMEM */
-	}
+// 	/*
+// 	 * Determine low and high memory ranges:
+// 	 */
+// 	// 确定低内存和高内存的范围
+// 	max_low_pfn = max_pfn;
+// 	if (max_low_pfn > MAXMEM_PFN) {
+// 		max_low_pfn = MAXMEM_PFN;
+// #ifndef CONFIG_HIGHMEM
+// 		/* Maximum memory usable is what is directly addressable */
+// 		printk(KERN_WARNING "Warning only %ldMB will be used.\n",
+// 					MAXMEM>>20);
+// 		if (max_pfn > MAX_NONPAE_PFN)
+// 			printk(KERN_WARNING "Use a PAE enabled kernel.\n");
+// 		else
+// 			printk(KERN_WARNING "Use a HIGHMEM enabled kernel.\n");
+// #else /* !CONFIG_HIGHMEM */
+// #ifndef CONFIG_X86_PAE
+// 		if (max_pfn > MAX_NONPAE_PFN) {
+// 			max_pfn = MAX_NONPAE_PFN;
+// 			printk(KERN_WARNING "Warning only 4GB will be used.\n");
+// 			printk(KERN_WARNING "Use a PAE enabled kernel.\n");
+// 		}
+// #endif /* !CONFIG_X86_PAE */
+// #endif /* !CONFIG_HIGHMEM */
+// 	}
 
-#ifdef CONFIG_HIGHMEM
-	highstart_pfn = highend_pfn = max_pfn;
-	if (max_pfn > MAXMEM_PFN) {
-		highstart_pfn = MAXMEM_PFN;
-		printk(KERN_NOTICE "%ldMB HIGHMEM available.\n",
-			pages_to_mb(highend_pfn - highstart_pfn));
-	}
-#endif
-	/*
-	 * Initialize the boot-time allocator (with low memory only):
-	 */
-	// 使用低内存初始化启动时分配器
-	bootmap_size = init_bootmem(start_pfn, max_low_pfn);
+// #ifdef CONFIG_HIGHMEM
+// 	highstart_pfn = highend_pfn = max_pfn;
+// 	if (max_pfn > MAXMEM_PFN) {
+// 		highstart_pfn = MAXMEM_PFN;
+// 		printk(KERN_NOTICE "%ldMB HIGHMEM available.\n",
+// 			pages_to_mb(highend_pfn - highstart_pfn));
+// 	}
+// #endif
+// 	/*
+// 	 * Initialize the boot-time allocator (with low memory only):
+// 	 */
+// 	// 使用低内存初始化启动时分配器
+// 	bootmap_size = init_bootmem(start_pfn, max_low_pfn);
 
-	/*
-	 * Register fully available low RAM pages with the bootmem allocator.
-	 */
-	// 使用启动时分配器注册完全可用的低RAM页面
-	for (i = 0; i < e820.nr_map; i++) {
-		unsigned long curr_pfn, last_pfn, size;
- 		/*
-		 * Reserve usable low memory
-		 */
-		if (e820.map[i].type != E820_RAM)
-			continue;
-		/*
-		 * We are rounding up the start address of usable memory:
-		 */
-		curr_pfn = PFN_UP(e820.map[i].addr);
-		if (curr_pfn >= max_low_pfn)
-			continue;
-		/*
-		 * ... and at the end of the usable range downwards:
-		 */
-		last_pfn = PFN_DOWN(e820.map[i].addr + e820.map[i].size);
+// 	/*
+// 	 * Register fully available low RAM pages with the bootmem allocator.
+// 	 */
+// 	// 使用启动时分配器注册完全可用的低RAM页面
+// 	for (i = 0; i < e820.nr_map; i++) {
+// 		unsigned long curr_pfn, last_pfn, size;
+//  		/*
+// 		 * Reserve usable low memory
+// 		 */
+// 		if (e820.map[i].type != E820_RAM)
+// 			continue;
+// 		/*
+// 		 * We are rounding up the start address of usable memory:
+// 		 */
+// 		curr_pfn = PFN_UP(e820.map[i].addr);
+// 		if (curr_pfn >= max_low_pfn)
+// 			continue;
+// 		/*
+// 		 * ... and at the end of the usable range downwards:
+// 		 */
+// 		last_pfn = PFN_DOWN(e820.map[i].addr + e820.map[i].size);
 
-		if (last_pfn > max_low_pfn)
-			last_pfn = max_low_pfn;
+// 		if (last_pfn > max_low_pfn)
+// 			last_pfn = max_low_pfn;
 
-		/*
-		 * .. finally, did all the rounding and playing
-		 * around just make the area go away?
-		 */
-		if (last_pfn <= curr_pfn)
-			continue;
+// 		/*
+// 		 * .. finally, did all the rounding and playing
+// 		 * around just make the area go away?
+// 		 */
+// 		if (last_pfn <= curr_pfn)
+// 			continue;
 
-		size = last_pfn - curr_pfn;
-		free_bootmem(PFN_PHYS(curr_pfn), PFN_PHYS(size));
-	}
-	/*
-	 * Reserve the bootmem bitmap itself as well. We do this in two
-	 * steps (first step was init_bootmem()) because this catches
-	 * the (very unlikely) case of us accidentally initializing the
-	 * bootmem allocator with an invalid RAM area.
-	 */
-	reserve_bootmem(HIGH_MEMORY, (PFN_PHYS(start_pfn) +
-			 bootmap_size + PAGE_SIZE-1) - (HIGH_MEMORY));	// 为启动时分配器的位图本身预留内存
+// 		size = last_pfn - curr_pfn;
+// 		free_bootmem(PFN_PHYS(curr_pfn), PFN_PHYS(size));
+// 	}
+// 	/*
+// 	 * Reserve the bootmem bitmap itself as well. We do this in two
+// 	 * steps (first step was init_bootmem()) because this catches
+// 	 * the (very unlikely) case of us accidentally initializing the
+// 	 * bootmem allocator with an invalid RAM area.
+// 	 */
+// 	reserve_bootmem(HIGH_MEMORY, (PFN_PHYS(start_pfn) +
+// 			 bootmap_size + PAGE_SIZE-1) - (HIGH_MEMORY));	// 为启动时分配器的位图本身预留内存
 
-	/*
-	 * reserve physical page 0 - it's a special BIOS page on many boxes,
-	 * enabling clean reboots, SMP operation, laptop functions.
-	 */
-	reserve_bootmem(0, PAGE_SIZE);	// 为物理页面0预留内存，因为它在许多机器上是一个特殊的BIOS页面
+// 	/*
+// 	 * reserve physical page 0 - it's a special BIOS page on many boxes,
+// 	 * enabling clean reboots, SMP operation, laptop functions.
+// 	 */
+// 	reserve_bootmem(0, PAGE_SIZE);	// 为物理页面0预留内存，因为它在许多机器上是一个特殊的BIOS页面
 
-#ifdef CONFIG_SMP		// 为SMP配置预留内存
-	/*
-	 * But first pinch a few for the stack/trampoline stuff
-	 * FIXME: Don't need the extra page at 4K, but need to fix
-	 * trampoline before removing it. (see the GDT stuff)
-	 */
-	// 为堆栈/跳板预留一些内存
-	// FIXME: 在4K处不需要额外的页面，但需要在删除它之前修复跳板（参见GDT部分）
-	reserve_bootmem(PAGE_SIZE, PAGE_SIZE);	
-	// 为AP处理器在低内存中分配实模式堆栈
-	smp_alloc_memory(); /* AP processor realmode stacks in low memory*/
-#endif
+// #ifdef CONFIG_SMP		// 为SMP配置预留内存
+// 	/*
+// 	 * But first pinch a few for the stack/trampoline stuff
+// 	 * FIXME: Don't need the extra page at 4K, but need to fix
+// 	 * trampoline before removing it. (see the GDT stuff)
+// 	 */
+// 	// 为堆栈/跳板预留一些内存
+// 	// FIXME: 在4K处不需要额外的页面，但需要在删除它之前修复跳板（参见GDT部分）
+// 	reserve_bootmem(PAGE_SIZE, PAGE_SIZE);	
+// 	// 为AP处理器在低内存中分配实模式堆栈
+// 	smp_alloc_memory(); /* AP processor realmode stacks in low memory*/
+// #endif
 
-#ifdef CONFIG_X86_IO_APIC
-	/*
-	 * Find and reserve possible boot-time SMP configuration:
-	 */
-	find_smp_config();		// 查找并预留可能的启动时SMP配置
-#endif
-	// 初始化分页
-	paging_init();
-#ifdef CONFIG_X86_IO_APIC
-	/*
-	 * get boot-time SMP configuration:
-	 */
-	if (smp_found_config)		// 如果找到SMP配置，获取启动时的SMP配置
-		get_smp_config();
-#endif
-#ifdef CONFIG_X86_LOCAL_APIC
-	init_apic_mappings();		// 初始化APIC映射
-#endif
+// #ifdef CONFIG_X86_IO_APIC
+// 	/*
+// 	 * Find and reserve possible boot-time SMP configuration:
+// 	 */
+// 	find_smp_config();		// 查找并预留可能的启动时SMP配置
+// #endif
+// 	// 初始化分页
+// 	paging_init();
+// #ifdef CONFIG_X86_IO_APIC
+// 	/*
+// 	 * get boot-time SMP configuration:
+// 	 */
+// 	if (smp_found_config)		// 如果找到SMP配置，获取启动时的SMP配置
+// 		get_smp_config();
+// #endif
+// #ifdef CONFIG_X86_LOCAL_APIC
+// 	init_apic_mappings();		// 初始化APIC映射
+// #endif
 
-#ifdef CONFIG_BLK_DEV_INITRD
-	if (LOADER_TYPE && INITRD_START) {	// 如果加载器类型和INITRD_START都存在
-		if (INITRD_START + INITRD_SIZE <= (max_low_pfn << PAGE_SHIFT)) {	// 如果initrd的大小和起始位置都在低内存范围内
-			reserve_bootmem(INITRD_START, INITRD_SIZE);	// 预留initrd的内存
-			initrd_start =
-				INITRD_START ? INITRD_START + PAGE_OFFSET : 0;
-			initrd_end = initrd_start+INITRD_SIZE;
-		}
-		else {
-			// 如果initrd超出了内存的末尾，打印警告并禁用initrd
-			printk("initrd extends beyond end of memory "
-			    "(0x%08lx > 0x%08lx)\ndisabling initrd\n",
-			    INITRD_START + INITRD_SIZE,
-			    max_low_pfn << PAGE_SHIFT);
-			initrd_start = 0;
-		}
-	}
-#endif
+// #ifdef CONFIG_BLK_DEV_INITRD
+// 	if (LOADER_TYPE && INITRD_START) {	// 如果加载器类型和INITRD_START都存在
+// 		if (INITRD_START + INITRD_SIZE <= (max_low_pfn << PAGE_SHIFT)) {	// 如果initrd的大小和起始位置都在低内存范围内
+// 			reserve_bootmem(INITRD_START, INITRD_SIZE);	// 预留initrd的内存
+// 			initrd_start =
+// 				INITRD_START ? INITRD_START + PAGE_OFFSET : 0;
+// 			initrd_end = initrd_start+INITRD_SIZE;
+// 		}
+// 		else {
+// 			// 如果initrd超出了内存的末尾，打印警告并禁用initrd
+// 			printk("initrd extends beyond end of memory "
+// 			    "(0x%08lx > 0x%08lx)\ndisabling initrd\n",
+// 			    INITRD_START + INITRD_SIZE,
+// 			    max_low_pfn << PAGE_SHIFT);
+// 			initrd_start = 0;
+// 		}
+// 	}
+// #endif
 
-	/*
-	 * Request address space for all standard RAM and ROM resources
-	 * and also for regions reported as reserved by the e820.
-	 */
-	probe_roms();	// 探测ROMs
-	for (i = 0; i < e820.nr_map; i++) {	// 遍历e820映射，为所有标准的RAM和ROM资源以及e820报告为保留的区域请求地址空间
-		struct resource *res;
-		if (e820.map[i].addr + e820.map[i].size > 0x100000000ULL)
-			continue;
-		res = alloc_bootmem_low(sizeof(struct resource));
-		switch (e820.map[i].type) {
-		case E820_RAM:	res->name = "System RAM"; break;
-		case E820_ACPI:	res->name = "ACPI Tables"; break;
-		case E820_NVS:	res->name = "ACPI Non-volatile Storage"; break;
-		default:	res->name = "reserved";
-		}
-		res->start = e820.map[i].addr;
-		res->end = res->start + e820.map[i].size - 1;
-		res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
-		request_resource(&iomem_resource, res);
-		if (e820.map[i].type == E820_RAM) {	// 我们不知道哪个RAM区域包含内核数据，所以我们反复尝试并让资源管理器测试它
-			/*
-			 *  We dont't know which RAM region contains kernel data,
-			 *  so we try it repeatedly and let the resource manager
-			 *  test it.
-			 */
-			request_resource(res, &code_resource);
-			request_resource(res, &data_resource);
-		}
-	}
-	request_resource(&iomem_resource, &vram_resource);	// 请求VRAM资源
+// 	/*
+// 	 * Request address space for all standard RAM and ROM resources
+// 	 * and also for regions reported as reserved by the e820.
+// 	 */
+// 	probe_roms();	// 探测ROMs
+// 	for (i = 0; i < e820.nr_map; i++) {	// 遍历e820映射，为所有标准的RAM和ROM资源以及e820报告为保留的区域请求地址空间
+// 		struct resource *res;
+// 		if (e820.map[i].addr + e820.map[i].size > 0x100000000ULL)
+// 			continue;
+// 		res = alloc_bootmem_low(sizeof(struct resource));
+// 		switch (e820.map[i].type) {
+// 		case E820_RAM:	res->name = "System RAM"; break;
+// 		case E820_ACPI:	res->name = "ACPI Tables"; break;
+// 		case E820_NVS:	res->name = "ACPI Non-volatile Storage"; break;
+// 		default:	res->name = "reserved";
+// 		}
+// 		res->start = e820.map[i].addr;
+// 		res->end = res->start + e820.map[i].size - 1;
+// 		res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
+// 		request_resource(&iomem_resource, res);
+// 		if (e820.map[i].type == E820_RAM) {	// 我们不知道哪个RAM区域包含内核数据，所以我们反复尝试并让资源管理器测试它
+// 			/*
+// 			 *  We dont't know which RAM region contains kernel data,
+// 			 *  so we try it repeatedly and let the resource manager
+// 			 *  test it.
+// 			 */
+// 			request_resource(res, &code_resource);
+// 			request_resource(res, &data_resource);
+// 		}
+// 	}
+// 	request_resource(&iomem_resource, &vram_resource);	// 请求VRAM资源
 
-	/* request I/O space for devices used on all i[345]86 PCs */
-	for (i = 0; i < STANDARD_IO_RESOURCES; i++)	// 为所有i[345]86 PCs上使用的设备请求I/O空间
-		request_resource(&ioport_resource, standard_io_resources+i);
+// 	/* request I/O space for devices used on all i[345]86 PCs */
+// 	for (i = 0; i < STANDARD_IO_RESOURCES; i++)	// 为所有i[345]86 PCs上使用的设备请求I/O空间
+// 		request_resource(&ioport_resource, standard_io_resources+i);
 
-#ifdef CONFIG_VT
-	// 根据配置选择控制台切换指针
-#if defined(CONFIG_VGA_CONSOLE)
-	conswitchp = &vga_con;
-#elif defined(CONFIG_DUMMY_CONSOLE)
-	conswitchp = &dummy_con;
-#endif
-#endif
+// #ifdef CONFIG_VT
+// 	// 根据配置选择控制台切换指针
+// #if defined(CONFIG_VGA_CONSOLE)
+// 	conswitchp = &vga_con;
+// #elif defined(CONFIG_DUMMY_CONSOLE)
+// 	conswitchp = &dummy_con;
+// #endif
+// #endif
 }
