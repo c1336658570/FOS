@@ -58,7 +58,7 @@ debug:
 
 gdb:
 	qemu-system-x86_64 -serial stdio -S -s -drive file=./hd.img,format=raw,index=0,media=disk -m 512 &
-	gdb -ex "set architecture i386:x86-64" -ex "target remote:1234" kernel.bin
+	gdb -x script/gdbinit
 
 #用于模拟x86_64架构的计算机系统		
 
