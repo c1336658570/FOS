@@ -43,19 +43,27 @@ struct multiboot_t {
      * 低端内存的最大可能值是640K。
      * 高端内存的最大可能值是最大值减去1M。但并不保证是这个值。
      */
+    // BIOS报告的可用内存大小，以KB为单位。mem_lower表示低端内存的大小，mem_upper表示高端内存的大小。
+    // flags[0]被置位则出现，mem_*域有效
     uint32_t mem_lower;
     uint32_t mem_upper;
 
-    uint32_t boot_device;		// 指出引导程序从哪个 BIOS 磁盘设备载入的OS映像
-    uint32_t cmdline;		// 内核命令行
-    uint32_t mods_count;		// boot 模块列表
-    uint32_t mods_addr;
+    // flags[1]被置位则出现
+    uint32_t boot_device;		// 指出引导程序从哪个BIOS磁盘设备加载操作系统映像。如果OS映像不是从一个BIOS磁盘载入的，这个域就决不能出现（第3位必须是0）
+    // flag[2],cmdline域有效，并包含要传送给内核的命令行参数的物理地址
+    uint32_t cmdline;		// 内核命令行的地址
+    // flag[3]  mods域指出了同内核一同载入的有哪些引导模块，以及在哪里能找到它们
+    uint32_t mods_count;		// boot 模块列表        引导模块列表的数量和地址
+    uint32_t mods_addr;     // 引导模块列表的数量和地址
 
     /**
     * "flags"字段的 bit-5 设置了
      * ELF 格式内核映像的section头表。
      * 包括ELF 内核的 section header table 在哪里、每项的大小、一共有几项以及作为名字索引的字符串表。
      */
+    // 这些字段与ELF格式的内核映像的section头表有关。
+    // 它们指定了ELF内核的section header table的地址、大小、项数以及名称索引的字符串表
+    // flag[4] 或 flag[5]       第4位和第5位是互斥的。
     uint32_t num;
     uint32_t size;
     uint32_t addr;
@@ -66,15 +74,22 @@ struct multiboot_t {
      * mmap_addr是缓冲区的地址，mmap_length是缓冲区的总大小
      * 缓冲区由一个或者多个下面的大小/结构对 mmap_entry_t 组成
      */
+     //flag[6]
     uint32_t mmap_length;
     uint32_t mmap_addr;
 
+    // 第一个驱动器结构的地址和大小
+    // flag[7]
     uint32_t drives_length; 	// 指出第一个驱动器结构的物理地址
     uint32_t drives_addr; 		// 指出第一个驱动器这个结构的大小
-    uint32_t config_table; 		// ROM 配置表
-    uint32_t boot_loader_name; 	// boot loader 的名字
-    uint32_t apm_table; 	    	// APM 表
-    uint32_t vbe_control_info;
+    // flag[8]
+    uint32_t config_table; 		// ROM 配置表       ROM配置表的地址
+    // flag[9]
+    uint32_t boot_loader_name; 	// boot loader 的名字       引导加载程序的名称
+    // flag[10]
+    uint32_t apm_table; 	    	// APM 表       APM表的地址
+    // 与VBE（VESA BIOS扩展）相关的字段
+    uint32_t vbe_control_info;      // flag[11]
     uint32_t vbe_mode_info;
     uint32_t vbe_mode;
     uint32_t vbe_interface_seg;
@@ -90,12 +105,13 @@ struct multiboot_t {
  */
 typedef
 struct mmap_entry_t {
-    uint32_t size; 		// 留意 size 是不含 size 自身变量的大小
+    uint32_t size; 		// 留意 size 是不含 size 自身变量的大小         结构体本身的大小
+    // 内存区域的起始地址，以64位表示
     uint32_t base_addr_low;
     uint32_t base_addr_high;
     uint32_t length_low;
     uint32_t length_high;
-    uint32_t type;
+    uint32_t type;      // 表示相应地址区间的类型，其中1代表可用RAM，其他值代表保留区域
 } __attribute__((packed)) mmap_entry_t;
 
 // 声明全局的 multiboot_t * 指针
