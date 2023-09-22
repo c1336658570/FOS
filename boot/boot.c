@@ -8,7 +8,7 @@
 
 // 内核栈的栈顶
 uint32_t kern_stack_top;
-void* glb_mboot_ptr;
+multiboot_t *glb_mboot_ptr;
 extern void start_kernel(void);
 extern void *flush;
 
