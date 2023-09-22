@@ -64,10 +64,11 @@ struct multiboot_t {
     // 这些字段与ELF格式的内核映像的section头表有关。
     // 它们指定了ELF内核的section header table的地址、大小、项数以及名称索引的字符串表
     // flag[4] 或 flag[5]       第4位和第5位是互斥的。
-    uint32_t num;
-    uint32_t size;
-    uint32_t addr;
-    uint32_t shndx;
+    uint32_t num;       // 个数
+    uint32_t size;      // 大小
+    uint32_t addr;      // 起始地址
+    uint32_t shndx; // ELF格式内核映像的section头表中作为名字索引的字符串表的索引
+    // 通过该索引值，可以在ELF格式内核映像的section头表中找到对应的字符串表，进而查找和解析其中的字符串信息
 
     /**
      * 以下两项指出保存由BIOS提供的内存分布的缓冲区的地址和长度
@@ -118,6 +119,6 @@ struct mmap_entry_t {
 // 内核未建立分页机制前暂存的指针
 //multiboot_t *mboot_ptr_tmp;
 
-extern void *glb_mboot_ptr __attribute__ ((__section__ (".data.init")));
+extern multiboot_t *glb_mboot_ptr __attribute__ ((__section__ (".data.init")));
 
 #endif 	// INCLUDE_MULTIBOOT_H_

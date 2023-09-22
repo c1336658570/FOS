@@ -1,0 +1,5 @@
+set architecture i386:x86-64
+file kernel.bin
+target remote :1234
+break kern_entry
+c
