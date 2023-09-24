@@ -4,9 +4,18 @@
 #include <linux/init.h>
 #include <linux/multiboot.h>
 #include <linux/string.h>
+#include <asm/page.h>
+#include <linux/bootmem.h>
+#include <linux/kernel.h>
+#include <linux/pgtable.h>
+
+// 用户定义的 highmem_pages 大小（高端内存的页数）
+static unsigned int highmem_pages __initdata = -1;
 
 struct e820map e820;
 struct e820map biosmap;
+
+extern char _text, _etext, _edata, _end;
 
 // 打印系统的内存映射
 void show_memory_map() {
@@ -296,6 +305,120 @@ static void __init print_memory_map(char *who) {
   }
 }
 
+#define PFN_UP(x)	(((x) + PAGE_SIZE-1) >> PAGE_SHIFT) // 求页面号并向上对齐（+4095并右移12位）
+#define PFN_DOWN(x)	((x) >> PAGE_SHIFT) // 求页面号，向下对齐（右移12位）
+#define PFN_PHYS(x)	((x) << PAGE_SHIFT) // 左移12位
+
+/*
+ * Reserved space for vmalloc and iomap - defined in asm/page.h
+ */
+#define MAXMEM_PFN	PFN_DOWN(MAXMEM)
+#define MAX_NONPAE_PFN	(1 << 20)
+
+static void __init find_max_pfn(void)
+{
+	// 找到系统中的最大物理帧号（max_pfn）
+	int i;
+
+	max_pfn = 0;		// 初始化 max_pfn 为 0，max_pfn 用于存储最大的物理帧号
+	for (i = 0; i < e820.nr_map; i++) {
+		unsigned long start, end;	// 定义两个无符号长整型变量，用于存储内存区块的起始和结束帧号
+		/* RAM? */
+		if (e820.map[i].type != E820_RAM)	// 检查 e820 映射表中当前项的类型是否为 RAM，如果不是，则跳过此项
+			continue;
+		// 计算当前内存区块的起始帧号，PFN_UP 是一个宏，用于将地址向上取整到最近的页边界
+		start = PFN_UP(e820.map[i].addr);
+		// 计算当前内存区块的结束帧号，PFN_DOWN 是一个宏，用于将地址向下取整到最近的页边界
+		end = PFN_DOWN(e820.map[i].addr + e820.map[i].size);
+		if (start >= end)	// 检查计算出的起始帧号是否大于等于结束帧号，如果是，则跳过此项
+			continue;
+		if (end > max_pfn)	// 如果计算出的结束帧号大于当前的 max_pfn，则更新 max_pfn
+			max_pfn = end;
+	}
+}
+
+static unsigned long __init find_max_low_pfn(void)
+{
+	unsigned long max_low_pfn;
+
+	max_low_pfn = max_pfn;	// 定义一个变量用于存储最大的低端PFN值
+	if (max_low_pfn > MAXMEM_PFN) {		// 检查最大的低端PFN值是否超过了预定义的MAXMEM_PFN
+		if (highmem_pages == -1)	
+			// 如果高端内存页数未设置（初始化为-1），则根据最大PFN和MAXMEM_PFN计算高端内存页数
+			highmem_pages = max_pfn - MAXMEM_PFN;
+		if (highmem_pages + MAXMEM_PFN < max_pfn)	
+			// 如果高端内存页数加上MAXMEM_PFN小于最大PFN，则更新最大PFN为MAXMEM_PFN加上高端内存页数
+			max_pfn = MAXMEM_PFN + highmem_pages;
+		if (highmem_pages + MAXMEM_PFN > max_pfn) {
+			// 如果高端内存页数加上MAXMEM_PFN大于最大PFN，则打印警告信息，并将高端内存页数设置为0
+			printk("only %luMB highmem pages available, ignoring highmem size of %uMB.\n", pages_to_mb(max_pfn - MAXMEM_PFN), pages_to_mb(highmem_pages));
+			highmem_pages = 0;
+		}
+		max_low_pfn = MAXMEM_PFN;	// 更新最大的低端PFN值为MAXMEM_PFN
+#ifndef CONFIG_HIGHMEM
+		/* Maximum memory usable is what is directly addressable */
+		// 如果未启用高端内存支持，则打印警告信息，指示将只使用可直接寻址的最大内存量
+		printk(KERN_WARNING "Warning only %ldMB will be used.\n",
+					MAXMEM>>20);
+		if (max_pfn > MAX_NONPAE_PFN)
+			// 如果最大PFN超过了非PAE内核的最大PFN，则打印警告信息，建议使用启用PAE的内核
+			printk(KERN_WARNING "Use a PAE enabled kernel.\n");
+		else
+			printk(KERN_WARNING "Use a HIGHMEM enabled kernel.\n");
+#else /* !CONFIG_HIGHMEM */
+#ifndef CONFIG_X86_PAE
+		if (max_pfn > MAX_NONPAE_PFN) {
+			// 如果最大PFN超过了非PAE内核的最大PFN，则将最大PFN更新为非PAE内核的最大PFN，并打印警告信息
+			max_pfn = MAX_NONPAE_PFN;
+			printk(KERN_WARNING "Warning only 4GB will be used.\n");
+			printk(KERN_WARNING "Use a PAE enabled kernel.\n");
+		}
+#endif /* !CONFIG_X86_PAE */
+#endif /* !CONFIG_HIGHMEM */
+	} else { // 如果最大的低端PFN值未超过预定义的MAXMEM_PFN
+		if (highmem_pages == -1)	// 如果高端内存页数未设置（初始化为-1），则将其设置为0
+			highmem_pages = 0;
+#if CONFIG_HIGHMEM	// 如果启用了高端内存支持
+		if (highmem_pages >= max_pfn) {
+			// 检查高端内存页数是否大于等于最大PFN，如果是，则打印错误信息，并将高端内存页数设置为0
+			printk(KERN_ERR "highmem size specified (%uMB) is bigger than pages available (%luMB)!.\n", pages_to_mb(highmem_pages), pages_to_mb(max_pfn));
+			highmem_pages = 0;
+		}
+		if (highmem_pages) {	// 如果高端内存页数大于0
+			if (max_low_pfn-highmem_pages < 64*1024*1024/PAGE_SIZE){
+				// 如果最大的低端PFN值减去高端内存页数小于64MB（以页面大小计算），则打印错误信息，并将高端内存页数设置为0
+				printk(KERN_ERR "highmem size %uMB results in smaller than 64MB lowmem, ignoring it.\n", pages_to_mb(highmem_pages));
+				highmem_pages = 0;
+			}
+			max_low_pfn -= highmem_pages;
+		}
+#else
+		if (highmem_pages)
+			printk(KERN_ERR "ignoring highmem size on non-highmem kernel!\n");
+#endif
+	}
+
+	return max_low_pfn;
+}
+
+static unsigned long __init setup_memory() {
+  printk("setup_memory start\n");
+
+  unsigned long bootmap_size, start_pfn, max_low_pfn;
+
+  start_pfn = PFN_UP(__pa(&_end));	// 获取可用内存的起始页帧号
+  printk("start_pfn = 0x%x\n", start_pfn);
+
+  find_max_pfn();		// 找到系统中物理内存的最大页帧号
+  printk("max_pfn = 0x%x\n", max_pfn);
+
+  // 找到低端内存（low memory）的最大页帧号
+	max_low_pfn = find_max_low_pfn();	
+  printk("max_low_pfn = 0x%x\n", max_low_pfn);
+
+  printk("setup_memory end\n");
+}
+
 static void __init setup_memory_region(void) {
   // printk("setup_memory_region start\n");
 
@@ -317,6 +440,8 @@ void __init setup_arch() {
   // printk("setup_arch start\n");
 
   setup_memory_region();  // 设置内存区域。
+
+  setup_memory();
 
   // printk("setup_arch end\n");
 }

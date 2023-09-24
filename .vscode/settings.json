@@ -1,10 +1,10 @@
 {
-  "C_Cpp_Runner.msvcBatchPath": "",
   "C_Cpp_Runner.cCompilerPath": "gcc",
   "C_Cpp_Runner.cppCompilerPath": "g++",
   "C_Cpp_Runner.debuggerPath": "gdb",
   "C_Cpp_Runner.cStandard": "",
   "C_Cpp_Runner.cppStandard": "",
+  "C_Cpp_Runner.msvcBatchPath": "",
   "C_Cpp_Runner.useMsvc": false,
   "C_Cpp_Runner.warnings": [
     "-Wall",
@@ -57,11 +57,7 @@
   "C_Cpp_Runner.useLinkTimeOptimization": false,
   "files.associations": {
     "*.ld": "c",
-    "multiboot.h": "c",
-    "stdio.h": "c",
-    "e820.h": "c",
-    "init.h": "c",
-    "debug.h": "c",
-    "types.h": "c"
+    "fs.h": "c",
+    "multiboot.h": "c"
   }
 }
