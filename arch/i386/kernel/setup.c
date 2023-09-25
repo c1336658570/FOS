@@ -7,7 +7,8 @@
 #include <asm/page.h>
 #include <linux/bootmem.h>
 #include <linux/kernel.h>
-#include <linux/pgtable.h>
+#include <asm/pgtable.h>
+#include <linux/bootmem.h>
 
 // 用户定义的 highmem_pages 大小（高端内存的页数）
 static unsigned int highmem_pages __initdata = -1;
@@ -415,6 +416,22 @@ static unsigned long __init setup_memory() {
   // 找到低端内存（low memory）的最大页帧号
 	max_low_pfn = find_max_low_pfn();	
   printk("max_low_pfn = 0x%x\n", max_low_pfn);
+
+  #ifdef CONFIG_HIGHMEM
+	highstart_pfn = highend_pfn = max_pfn;
+	if (max_pfn > max_low_pfn) {
+		highstart_pfn = max_low_pfn;
+	}
+	printk(KERN_NOTICE "%ldMB HIGHMEM available.\n",
+		pages_to_mb(highend_pfn - highstart_pfn));	 // 打印可用的高端内存（high memory）大小
+#endif
+	printk(KERN_NOTICE "%ldMB LOWMEM available.\n",
+			pages_to_mb(max_low_pfn));		 // 打印可用的低端内存（low memory）大小
+	/*
+	 * Initialize the boot-time allocator (with low memory only):
+	 */
+	bootmap_size = init_bootmem(start_pfn, max_low_pfn);	 // 初始化启动时的内存分配器，并返回分配的引导映射（bootmap）大小
+  printk("bootmap_size = 0x%x\n", bootmap_size);
 
   printk("setup_memory end\n");
 }

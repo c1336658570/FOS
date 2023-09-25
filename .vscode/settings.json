@@ -58,6 +58,10 @@
   "files.associations": {
     "*.ld": "c",
     "fs.h": "c",
-    "multiboot.h": "c"
+    "multiboot.h": "c",
+    "bootmem.h": "c",
+    "init.h": "c",
+    "spinlock.h": "c",
+    "mmzone.h": "c"
   }
 }
