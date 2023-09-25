@@ -1,4 +1,7 @@
 hd.img
-hdisk
+hdisk/lost+found
+hdisk/boot/kernel.bin
+hdisk/boot/grub/*
+!hdisk/boot/grub/grub.cfg
 build
 kernel.text
