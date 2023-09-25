@@ -14,6 +14,8 @@
 #include <linux/mmzone.h>
 #include <asm/io.h>
 #include <linux/string.h>
+#include <linux/debug.h>
+#include <asm/bitops.h>
 
 /*
  * Access to this subsystem has to be serialized externally. (this is
@@ -55,6 +57,42 @@ static unsigned long __init init_bootmem_core (pg_data_t *pgdat,
 	return mapsize;		// 返回位图的大小
 }
 
+// 接受一个指向 bootmem_data_t 结构体的指针 bdata，以及起始地址 addr 和大小 size 的参数，
+// 表示要释放的内存页的范围。
+static void __init free_bootmem_core(bootmem_data_t *bdata, unsigned long addr, unsigned long size)
+{
+	unsigned long i;
+	unsigned long start;
+	/*
+	 * round down end of usable mem, partially free pages are
+	 * considered reserved.
+	 */
+	unsigned long sidx;
+	// 根据 addr 和 size 计算出结束地址的页帧号 end 和结束索引 eidx
+	unsigned long eidx = (addr + size - bdata->node_boot_start)/PAGE_SIZE;
+	unsigned long end = (addr + size)/PAGE_SIZE;
+
+	// // 检查参数是否合法
+	if (!size) BUG();		// 如果 size 为 0，则触发 BUG，表示参数错误
+	if (end > bdata->node_low_pfn)	// 如果结束地址超过节点可用内存的最大页帧号，则触发 BUG，表示参数错误
+		BUG();
+
+	/*
+	 * Round up the beginning of the address.
+	 */
+	// 计算向上舍入后的起始地址 start 和起始索引偏移量 sidx。
+	start = (addr + PAGE_SIZE-1) / PAGE_SIZE;	// 向上舍入到页边界
+	sidx = start - (bdata->node_boot_start/PAGE_SIZE);	// 计算起始索引偏移量
+
+	// 逐个遍历起始索引 sidx 到结束索引 eidx 之间的索引值，对应于要释放的内存页。
+	// 逐个遍历页帧号，释放对应的位图位
+	for (i = sidx; i < eidx; i++) {
+		// 检查并清除位图中的位，如果位图已经被清除或者未被设置，则触发 BUG，表示内部错误
+		if (!test_and_clear_bit(i, bdata->node_bootmem_map))
+			BUG();
+	}
+}
+
 // 初始化引导内存管理器（bootmem），用于跟踪和管理系统的物理内存
 unsigned long __init init_bootmem (unsigned long start, unsigned long pages)
 {
@@ -65,3 +103,9 @@ unsigned long __init init_bootmem (unsigned long start, unsigned long pages)
 	return(init_bootmem_core(&contig_page_data, start, 0, pages));
 }
 
+// 用于释放一段引导内存页的范围。它调用了 free_bootmem_core 函数来完成实际的内存释放操作。
+// 接受一个起始地址 addr 和大小 size 的参数，表示要释放的内存页的范围。
+void __init free_bootmem (unsigned long addr, unsigned long size)
+{
+	return(free_bootmem_core(contig_page_data.bdata, addr, size));
+}

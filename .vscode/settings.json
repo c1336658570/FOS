@@ -62,6 +62,7 @@
     "bootmem.h": "c",
     "init.h": "c",
     "spinlock.h": "c",
-    "mmzone.h": "c"
+    "mmzone.h": "c",
+    "bitops.h": "c"
   }
 }

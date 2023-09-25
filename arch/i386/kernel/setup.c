@@ -402,6 +402,54 @@ static unsigned long __init find_max_low_pfn(void)
 	return max_low_pfn;
 }
 
+/*
+ * Register fully available low RAM pages with the bootmem allocator.
+ */
+// 将完全可用的低内存页（即物理地址低于 max_low_pfn 的页）注册给引导内存分配器。
+static void __init register_bootmem_low_pages(unsigned long max_low_pfn)
+{
+	int i;
+	// 遍历 e820 结构体数组中的每个内存映射条目。
+	for (i = 0; i < e820.nr_map; i++) {
+		unsigned long curr_pfn, last_pfn, size;
+		/*
+		 * Reserve usable low memory
+		 */
+		// 如果当前条目的类型不是 E820_RAM，表示该内存区域不可用，跳过处理。
+		if (e820.map[i].type != E820_RAM)
+			continue;
+		/*
+		 * We are rounding up the start address of usable memory:
+		 */
+		// 将当前条目的起始地址向上舍入为页帧号（PFN）并存储在 curr_pfn 中。
+		curr_pfn = PFN_UP(e820.map[i].addr);
+		// 如果 curr_pfn 大于等于 max_low_pfn，表示该内存区域不在低内存范围内，跳过处理。
+		if (curr_pfn >= max_low_pfn)
+			continue;
+		/*
+		 * ... and at the end of the usable range downwards:
+		 */
+		// 将当前条目的结束地址向下舍入为页帧号并存储在 last_pfn 中。
+		last_pfn = PFN_DOWN(e820.map[i].addr + e820.map[i].size);
+
+		// 如果 last_pfn 大于 max_low_pfn，将其限制为 max_low_pfn，确保不超过低内存范围。
+		if (last_pfn > max_low_pfn)
+			last_pfn = max_low_pfn;
+
+		/*
+		 * .. finally, did all the rounding and playing
+		 * around just make the area go away?
+		 */
+		// 如果经过舍入处理后，last_pfn 小于等于 curr_pfn，表示该内存区域被舍弃或不存在，跳过处理。
+		if (last_pfn <= curr_pfn)
+			continue;
+
+		size = last_pfn - curr_pfn;	// 计算该内存区域的大小（以页帧号表示），存储在 size 中。
+		// 调用 free_bootmem 函数，将该内存区域标记为可用，以便引导内存分配器可以将其用于动态内存分配。
+		free_bootmem(PFN_PHYS(curr_pfn), PFN_PHYS(size));
+	}
+}
+
 static unsigned long __init setup_memory() {
   printk("setup_memory start\n");
 
@@ -432,6 +480,8 @@ static unsigned long __init setup_memory() {
 	 */
 	bootmap_size = init_bootmem(start_pfn, max_low_pfn);	 // 初始化启动时的内存分配器，并返回分配的引导映射（bootmap）大小
   printk("bootmap_size = 0x%x\n", bootmap_size);
+
+  register_bootmem_low_pages(max_low_pfn);	// 注册低端内存（low memory）的页帧
 
   printk("setup_memory end\n");
 }
