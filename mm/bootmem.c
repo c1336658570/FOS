@@ -16,6 +16,7 @@
 #include <linux/string.h>
 #include <linux/debug.h>
 #include <asm/bitops.h>
+#include <asm/stdio.h>
 
 /*
  * Access to this subsystem has to be serialized externally. (this is
@@ -55,6 +56,47 @@ static unsigned long __init init_bootmem_core (pg_data_t *pgdat,
 	memset(bdata->node_bootmem_map, 0xff, mapsize);	// 初始化位图，将所有位设为1，表示所有页都是预留的
 
 	return mapsize;		// 返回位图的大小
+}
+
+/*
+ * Marks a particular physical memory range as unallocatable. Usable RAM
+ * might be used for boot-time allocations - or it might get added
+ * to the free page pool later on.
+ */
+static void __init reserve_bootmem_core(bootmem_data_t *bdata, unsigned long addr, unsigned long size)
+{
+	// 用于标记特定的物理内存范围为不可分配，以便在后续的内存管理中避免对这些页的分配。
+	
+	unsigned long i;
+	/*
+	 * round up, partially reserved pages are considered
+	 * fully reserved.
+	 */
+
+	// 计算起始和结束索引，将地址和大小转换为以页为单位的索引
+	unsigned long sidx = (addr - bdata->node_boot_start)/PAGE_SIZE;
+	unsigned long eidx = (addr + size - bdata->node_boot_start + 
+							PAGE_SIZE-1)/PAGE_SIZE;
+	// 计算结束页的索引
+	unsigned long end = (addr + size + PAGE_SIZE-1)/PAGE_SIZE;
+
+	if (!size) BUG();
+
+	// 检查输入是否有效
+	if (sidx < 0)
+		BUG();		// 如果大小为0，发出错误警告
+	if (eidx < 0)
+		BUG();		// 如果起始索引小于0，发出错误警告
+	if (sidx >= eidx)
+		BUG();		// 如果结束索引小于0，发出错误警告
+	if ((addr >> PAGE_SHIFT) >= bdata->node_low_pfn)
+		BUG();		// 如果起始索引大于等于结束索引，发出错误警告
+	if (end > bdata->node_low_pfn)
+		BUG();		// 如果起始地址右移PAGE_SHIFT位后大于等于node_low_pfn，发出错误警告
+	for (i = sidx; i < eidx; i++)	// 遍历起始索引到结束索引之间的所有页
+		if (test_and_set_bit(i, bdata->node_bootmem_map))	// 检查并设置位图中的相应位，表示该页已被保留
+			// 如果该位已经被设置，说明该页已经被保留过一次，打印警告消息
+			printk("hm, page %08lx reserved twice.\n", i*PAGE_SIZE);
 }
 
 // 接受一个指向 bootmem_data_t 结构体的指针 bdata，以及起始地址 addr 和大小 size 的参数，
@@ -101,6 +143,14 @@ unsigned long __init init_bootmem (unsigned long start, unsigned long pages)
 	min_low_pfn = start;
 	// 调用init_bootmem_core函数进行初始化
 	return(init_bootmem_core(&contig_page_data, start, 0, pages));
+}
+
+// addr：要保留的内存范围的起始物理地址。
+// size：要保留的内存范围的大小，以字节为单位。
+void __init reserve_bootmem (unsigned long addr, unsigned long size)
+{
+	// 调用reserve_bootmem_core函数，将boot内存数据结构（contig_page_data.bdata）以及addr和size参数传递给它
+	reserve_bootmem_core(contig_page_data.bdata, addr, size);
 }
 
 // 用于释放一段引导内存页的范围。它调用了 free_bootmem_core 函数来完成实际的内存释放操作。

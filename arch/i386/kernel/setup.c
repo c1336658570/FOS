@@ -482,8 +482,63 @@ static unsigned long __init setup_memory() {
   printk("bootmap_size = 0x%x\n", bootmap_size);
 
   register_bootmem_low_pages(max_low_pfn);	// 注册低端内存（low memory）的页帧
+  
+  /*
+	 * Reserve the bootmem bitmap itself as well. We do this in two
+	 * steps (first step was init_bootmem()) because this catches
+	 * the (very unlikely) case of us accidentally initializing the
+	 * bootmem allocator with an invalid RAM area.
+	 */
+	// 把内核和 bootmem位图 所占的内存标记为“保留”，HIGH_MEMORY为1MB，即内核开始的地方
+	reserve_bootmem(HIGH_MEMORY, (PFN_PHYS(start_pfn) +
+			 bootmap_size + PAGE_SIZE-1) - (HIGH_MEMORY));	// 预留引导映射（bootmap）位图所占用的内存空间
+  	/*
+	 * reserve physical page 0 - it's a special BIOS page on many boxes,
+	 * enabling clean reboots, SMP operation, laptop functions.
+	 */
+	reserve_bootmem(0, PAGE_SIZE);	 // 预留物理页面0，这是许多主板上的特殊BIOS页面，用于实现干净的重新启动、SMP操作和笔记本功能。
+
+#ifdef CONFIG_SMP
+	/*
+	 * But first pinch a few for the stack/trampoline stuff
+	 * FIXME: Don't need the extra page at 4K, but need to fix
+	 * trampoline before removing it. (see the GDT stuff)
+	 */
+	reserve_bootmem(PAGE_SIZE, PAGE_SIZE);	// 预留一些页面用于堆栈/trampoline（用于实现从实模式切换到保护模式）的内容
+#endif
+#ifdef CONFIG_ACPI_SLEEP
+	/*
+	 * Reserve low memory region for sleep support.
+	 */
+	acpi_reserve_bootmem();	// 预留低端内存（low memory）区域以支持睡眠功能
+#endif
+#ifdef CONFIG_X86_LOCAL_APIC
+	/*
+	 * Find and reserve possible boot-time SMP configuration.
+	 */
+	find_smp_config();	// 查找并预留可能的启动时SMP配置
+#endif
+#ifdef CONFIG_BLK_DEV_INITRD
+	if (LOADER_TYPE && INITRD_START) {
+		if (INITRD_START + INITRD_SIZE <= (max_low_pfn << PAGE_SHIFT)) {
+			reserve_bootmem(INITRD_START, INITRD_SIZE);	// 预留用于initrd的内存空间
+			initrd_start =
+				INITRD_START ? INITRD_START + PAGE_OFFSET : 0;	// 设置initrd的起始地址
+			initrd_end = initrd_start+INITRD_SIZE;		// 设置initrd的结束地址
+		}
+		else {
+			printk(KERN_ERR "initrd extends beyond end of memory "
+			    "(0x%08lx > 0x%08lx)\ndisabling initrd\n",
+			    INITRD_START + INITRD_SIZE,
+			    max_low_pfn << PAGE_SHIFT);
+			initrd_start = 0;		// 初始化超出内存范围的情况，禁用initrd
+		}
+	}
+#endif
 
   printk("setup_memory end\n");
+
+	return max_low_pfn;
 }
 
 static void __init setup_memory_region(void) {
@@ -506,9 +561,12 @@ static void __init setup_memory_region(void) {
 void __init setup_arch() {
   // printk("setup_arch start\n");
 
+  unsigned long max_low_pfn;
+
   setup_memory_region();  // 设置内存区域。
 
-  setup_memory();
+  // 设置内存，并将最大低端页面帧号存储在max_low_pfn中。
+	max_low_pfn = setup_memory();
 
   // printk("setup_arch end\n");
 }
