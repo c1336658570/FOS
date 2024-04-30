@@ -567,6 +567,8 @@ void __init setup_arch() {
 
   // 设置内存，并将最大低端页面帧号存储在max_low_pfn中。
 	max_low_pfn = setup_memory();
+  
+  paging_init();		// 初始化分页。
 
   // printk("setup_arch end\n");
 }

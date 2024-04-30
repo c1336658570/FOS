@@ -64,5 +64,6 @@
     "spinlock.h": "c",
     "mmzone.h": "c",
     "bitops.h": "c"
-  }
+  },
+  "C_Cpp_Runner.msvcSecureNoWarnings": false
 }

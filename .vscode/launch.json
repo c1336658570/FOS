@@ -8,8 +8,8 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": false,
-      "cwd": "/home/cccmmf/FOS",
-      "program": "/home/cccmmf/FOS/build/Debug/outDebug",
+      "cwd": "/home/cccmmf/FOS/arch/i386/kernel",
+      "program": "/home/cccmmf/FOS/arch/i386/kernel/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [

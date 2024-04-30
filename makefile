@@ -52,6 +52,12 @@ umount_image:
 qemu:
 	qemu-system-x86_64 -serial stdio -drive file=./hd.img,format=raw,index=0,media=disk -m 512 -device VGA
 
+# 查看链接器生成的地址的VMA(Virtual Memory Address)和LMA(Load Memory Address)
+.PHONY:VMA_LMA
+VMA_LMA:
+#	readelf -l kernel.bin
+	objdump -h kernel.bin
+
 .PHONY:debug
 debug:
 	qemu-system-x86_64 -serial stdio -S -s -drive file=./hd.img,format=raw,index=0,media=disk -m 512
